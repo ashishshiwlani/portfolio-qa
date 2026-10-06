@@ -94,8 +94,13 @@ def db():
 
 
 @st.cache_resource
+def _client_for(key):
+    return llm.make_client(key)
+
+
 def model_client():
-    return llm.make_client(setting("ANTHROPIC_API_KEY"))
+    # keyed on the current secret, so a key added or rotated after start-up is picked up
+    return _client_for(setting("ANTHROPIC_API_KEY"))
 
 
 # ---------------------------------------------------------------- password gate

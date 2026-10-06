@@ -50,6 +50,9 @@ Rules:
 - Use only the industries listed in the tool schema. Map obvious synonyms (energy -> Oil & Gas, cars -> Automobiles).
 - If the question is about an industry, asset class or metric that is not available, asks for a
   forecast, or asks for investment advice, set intent to "unsupported" and give a one sentence reason.
+- If no industry is named (e.g. "how did stocks do"), use all industries with intent "compare_industries" and top_n = 5.
+- Refuse only what the data cannot answer: asset classes or industries not listed (crypto, real estate, bonds),
+  forecasts, or investment advice.
 - Defaults when not stated: top_n = 10, window = 3M.
 - "trending" or "over time" means intent "trend". Two or more industries with compare/versus means "compare_industries"."""
 
@@ -82,6 +85,7 @@ SYNONYMS = {
     "Technology": r"\b(tech|technology|software|semis?|semiconductors?|chips?|chipmakers?)\b",
     "Healthcare": r"\b(health ?care|health|pharma|pharmaceuticals?|drugmakers?|biotech)\b",
 }
+OTHER_ASSETS = r"\b(crypto\w*|bitcoin|ethereum|real estate|reits?|bonds?|treasur\w*|gold|silver|commodit\w*|forex|currenc\w*|etfs?|mutual funds?|options|futures|retail|airlines?|utilities|insurance|telecom\w*|media)\b"
 ADVICE = r"\b(should i|will|predict|predictions?|forecasts?|next (week|month|quarter|year)|recommend\w*|buy|sell|invest in)\b"
 SUPPORTED_SPANS = {("month", 1), ("month", 3), ("month", 6), ("month", 12), ("year", 1)}
 WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "nine": 9, "twelve": 12}
@@ -99,15 +103,18 @@ def parse_rules(question, industry_list):
     found = [i for i in industry_list if re.search(SYNONYMS.get(i, rf"\b{re.escape(i.lower())}\b"), q)]
     if re.search(r"\b(all|every|each) (industr|sector)", q):
         found = list(industry_list)
+    defaulted = False
     if not found:
-        return _unsupported(f"I only have data for these industries: {', '.join(industry_list)}.")
+        if re.search(OTHER_ASSETS, q):
+            return _unsupported(f"I only have data for these industries: {', '.join(industry_list)}.")
+        found, defaulted = list(industry_list), True  # "how did stocks do": every industry
     # an explicit span we don't carry ("last 2 years", "10 days") is refused, not silently defaulted
     for n, unit in re.findall(r"\b(\d+|" + "|".join(WORDS) + r")\s*(day|week|month|year)s?\b", q):
         n = WORDS.get(n) or int(n)
         if (unit, n) not in SUPPORTED_SPANS:
             return _unsupported(f"Supported time windows are: {', '.join(WINDOW_LABEL.values())}.")
     m = re.search(r"\b(?:top|best|leading)\s+(\d+)", q)
-    top_n = int(m.group(1)) if m else 10
+    top_n = int(m.group(1)) if m else (5 if defaulted else 10)
     if re.search(r"\bytd\b|year to date|this year|since january", q):
         window = "YTD"
     elif re.search(r"\b(6|six) months?|half (a )?year", q):
