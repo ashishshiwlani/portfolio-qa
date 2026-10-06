@@ -1,0 +1,4 @@
+.venv/
+__pycache__/
+audit_log.jsonl
+.streamlit/secrets.toml
