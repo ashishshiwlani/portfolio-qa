@@ -100,8 +100,17 @@ def model_client():
 
 # ---------------------------------------------------------------- password gate
 
+def hosted():
+    """Streamlit Community Cloud checks the repo out under /mount/src."""
+    return os.getcwd().startswith("/mount/src") or bool(os.environ.get("REQUIRE_PASSWORD"))
+
+
 def require_password():
     expected = setting("APP_PASSWORD")
+    if not expected and hosted():  # never serve a hosted copy unprotected
+        st.markdown("<div style='height:15vh'></div><h3 style='text-align:center;font-weight:600'>Portfolio Q&A</h3>"
+                    "<p style='text-align:center;color:#64748b'>This demo isn't open yet.</p>", unsafe_allow_html=True)
+        st.stop()
     if not expected or st.session_state.get("authed"):
         return
     st.session_state.setdefault("fails", 0)
