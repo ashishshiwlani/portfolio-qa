@@ -40,7 +40,8 @@ answer + table + chart + audit record
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 streamlit run app.py
-python evaluate.py        # 21 questions with known answers
+python evaluate.py        # 24 questions with known answers
+pip install pytest && pytest -q   # 329 end-to-end tests: engine math, parser, model path, UI
 ```
 
 It works without a model key: a keyword parser and a template writer take the model's place, and every
@@ -71,7 +72,7 @@ the data checks and the number check, plus suggested follow-up questions.
 ## Tabs
 
 - **Ask**: questions and answers, newest first
-- **Test set**: runs the 21 test questions in the browser. Each is checked for the right plan, for math
+- **Test set**: runs the 24 test questions in the browser. Each is checked for the right plan, for math
   that matches a separate pandas calculation, and for numbers that all appear in the result.
 - **Audit log**: the session's requests with parser, writer, timing and a hash of the result set
 - **Method**: the design and what I'd change for production
@@ -85,6 +86,7 @@ the data checks and the number check, plus suggested follow-up questions.
 | `pipeline.py` | Runs the flow and appends each request to `audit_log.jsonl`. |
 | `app.py` | Streamlit interface and the optional password gate. |
 | `evaluate.py` | The test set. |
+| `test_app.py` | End-to-end tests, including the model path against mocked API responses and the UI run headlessly. |
 | `fetch_data.py` | Refreshes the sample data (needs `pip install yfinance`). |
 
 ## For production I would

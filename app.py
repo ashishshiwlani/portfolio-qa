@@ -74,6 +74,11 @@ header[data-testid="stHeader"] {background: transparent; height: 0;}
 .foot {font-size: .75rem; color: #94a3b8; margin-top: 2.5rem; border-top: 1px solid #e2e8f0; padding-top: .8rem;}
 [data-testid="stMetricValue"] > div {font-size: clamp(1.2rem, 2.1vw, 1.8rem);}
 [data-testid="stMetricLabel"] p {white-space: normal;}
+@media (max-width: 640px) {
+  .top {flex-direction: column-reverse; gap: .2rem;}
+  .top h1 {font-size: 1.7rem;}
+  .block-container {padding-top: 1.2rem;}
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -88,9 +93,11 @@ def setting(name):
         return None
 
 
-@st.cache_resource
 def db():
-    return engine.load_db()
+    """One in-memory database per visitor session: a sqlite connection must not be shared across threads."""
+    if "con" not in st.session_state:
+        st.session_state.con = engine.load_db()
+    return st.session_state.con
 
 
 @st.cache_resource
@@ -235,7 +242,7 @@ def followups(p):
     n, w = p["top_n"], p["window"]
     names = " versus ".join(SHORT.get(i, i.lower()) for i in p["industries"])
     other_w = "1Y" if w != "1Y" else "3M"
-    if p["intent"] == "compare_industries":
+    if p["intent"] == "compare_industries" or len(p["industries"]) > 1:
         plural = " versus ".join(PLURAL.get(i, i.lower()) for i in p["industries"])
         return [f"Compare top {n} {plural} {PHRASE[other_w]}"]
     if p["intent"] == "trend":
@@ -276,7 +283,7 @@ def render_answer(q, out, key):
     f = out["facts"]
     p, table, summary = f["plan"], f["table"], f["summary"]
     st.markdown(f"<div class='readas'>{read_as(p)}</div>", unsafe_allow_html=True)
-    st.markdown(out["text"])
+    st.markdown(out["text"].replace("$", "\\$"))  # "$" would otherwise start a LaTeX block
     badges(out)
 
     cols = st.columns(len(summary) + 1) if len(summary) <= 3 else st.columns(len(summary))

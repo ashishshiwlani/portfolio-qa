@@ -71,9 +71,10 @@ def validate_plan(plan, con):
     n = plan.get("top_n", 10)
     if not isinstance(n, int) or not 1 <= n <= MAX_TOP_N:
         raise Refusal("hard", f"Top N must be between 1 and {MAX_TOP_N}.")
-    if plan["intent"] == "compare_industries" and len(wanted) < 2:
-        raise Refusal("soft", "A comparison needs at least two industries.")
-    return {"intent": plan["intent"], "industries": wanted, "window": plan["window"], "top_n": n}
+    intent = plan["intent"]
+    if intent == "compare_industries" and len(wanted) < 2:
+        intent = "top_performers"  # "compare the top oil names" is a ranking within one industry
+    return {"intent": intent, "industries": wanted, "window": plan["window"], "top_n": n}
 
 
 def run(plan, con):

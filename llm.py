@@ -37,8 +37,16 @@ def llm_available(api_key=None):
 
 
 def _call(client, **kw):
-    return client.beta.messages.create(model=MODEL, betas=BETAS, fallbacks="default",
-                                       output_config={"effort": "low"}, **kw)
+    import anthropic
+    try:
+        return client.beta.messages.create(model=MODEL, betas=BETAS, fallbacks="default",
+                                           output_config={"effort": "low"}, **kw)
+    except anthropic.BadRequestError as e:
+        # an option this model or account doesn't accept: retry as a plain request rather than drop to rules
+        log.warning("retrying without optional request settings: %s", e)
+        if "tools" in kw:
+            kw["tools"] = [{k: v for k, v in t.items() if k != "strict"} for t in kw["tools"]]
+        return client.messages.create(model=MODEL, **kw)
 
 
 # ---------------------------------------------------------------- step 1: parse
