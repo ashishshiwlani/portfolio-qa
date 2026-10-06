@@ -197,7 +197,8 @@ def bar_chart(table):
                  alt.Tooltip("end_close:Q", format="$.2f"), alt.Tooltip("return_pct:Q", format="+.2f")])
     bars = base.mark_bar(cornerRadiusEnd=2, height={"band": 0.72}).encode(
         color=alt.Color("industry:N", scale=alt.Scale(domain=present, range=[COLORS[i] for i in present]),
-                        legend=alt.Legend(orient="bottom", title=None) if len(present) > 1 else None))
+                        legend=alt.Legend(orient="bottom", title=None, columns=3, labelLimit=0)
+                        if len(present) > 1 else None))
     text = base.mark_text(align="left", dx=4, fontSize=11, color="#475569").encode(text="label:N")
     zero = alt.Chart(pd.DataFrame({"x": [0]})).mark_rule(color="#94a3b8").encode(x="x:Q")
     return (bars + text + zero).properties(height=max(200, 28 * len(d)))
@@ -242,6 +243,8 @@ def followups(p):
     n, w = p["top_n"], p["window"]
     names = " versus ".join(SHORT.get(i, i.lower()) for i in p["industries"])
     other_w = "1Y" if w != "1Y" else "3M"
+    if set(p["industries"]) == set(inds):
+        return [f"Top {n} in every industry {PHRASE[other_w]}"]
     if p["intent"] == "compare_industries" or len(p["industries"]) > 1:
         plural = " versus ".join(PLURAL.get(i, i.lower()) for i in p["industries"])
         return [f"Compare top {n} {plural} {PHRASE[other_w]}"]
