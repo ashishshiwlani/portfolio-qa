@@ -61,6 +61,8 @@ Rules:
 - If no industry is named (e.g. "how did stocks do"), use all industries with intent "compare_industries" and top_n = 5.
 - Refuse only what the data cannot answer: asset classes or industries not listed (crypto, real estate, bonds),
   forecasts, or investment advice.
+- If the question asks for a time window that is not in the schema (e.g. 2 years, 10 days, since 2020),
+  set intent to "unsupported". Never substitute the nearest window.
 - Defaults when not stated: top_n = 10, window = 3M.
 - "trending" or "over time" means intent "trend". Two or more industries with compare/versus means "compare_industries"."""
 
@@ -99,6 +101,16 @@ SUPPORTED_SPANS = {("month", 1), ("month", 3), ("month", 6), ("month", 12), ("ye
 WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "nine": 9, "twelve": 12}
 
 
+def unsupported_span(question):
+    """True when the question names a span we don't carry ("last 2 years", "10 days").
+    Checked before the model too, so a window is never silently swapped for the nearest one."""
+    q = " " + question.lower().replace("-", " ") + " "
+    for n, unit in re.findall(r"\b(\d+|" + "|".join(WORDS) + r")\s*(day|week|month|year)s?\b", q):
+        if (unit, WORDS.get(n) or int(n)) not in SUPPORTED_SPANS:
+            return True
+    return False
+
+
 def _unsupported(reason):
     return {"intent": "unsupported", "industries": [], "top_n": 10, "window": "3M", "reason": reason}
 
@@ -116,11 +128,8 @@ def parse_rules(question, industry_list):
         if re.search(OTHER_ASSETS, q):
             return _unsupported(f"I only have data for these industries: {', '.join(industry_list)}.")
         found, defaulted = list(industry_list), True  # "how did stocks do": every industry
-    # an explicit span we don't carry ("last 2 years", "10 days") is refused, not silently defaulted
-    for n, unit in re.findall(r"\b(\d+|" + "|".join(WORDS) + r")\s*(day|week|month|year)s?\b", q):
-        n = WORDS.get(n) or int(n)
-        if (unit, n) not in SUPPORTED_SPANS:
-            return _unsupported(f"Supported time windows are: {', '.join(WINDOW_LABEL.values())}.")
+    if unsupported_span(q):
+        return _unsupported(f"Supported time windows are: {', '.join(WINDOW_LABEL.values())}.")
     m = re.search(r"\b(?:top|best|leading)\s+(\d+)", q)
     top_n = int(m.group(1)) if m else (5 if defaulted else 10)
     if re.search(r"\bytd\b|year to date|this year|since january", q):
@@ -148,6 +157,8 @@ def parse_question(question, industry_list, client=None):
     """Returns (plan, parser). Falls back to the rule parser if the model is unavailable or returns no plan."""
     if client is None:
         return parse_rules(question, industry_list), "rules"
+    if unsupported_span(question):
+        return parse_rules(question, industry_list), "rules (window check)"
     try:
         msg = _call(client, max_tokens=4000, system=PARSE_SYSTEM,
                     tools=[_plan_tool(industry_list)],

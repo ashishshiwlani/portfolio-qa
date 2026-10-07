@@ -270,6 +270,13 @@ def test_model_refusal_and_missing_tool_call():
     assert answer("top 3 banks", CON, client=api.client())["parser"] == "rules (model returned no plan)"
 
 
+@pytest.mark.parametrize("q", ["Top banks over the last 2 years", "Best tech stocks over the last 10 days"])
+def test_unsupported_window_is_refused_before_the_model(q):
+    api = FakeAPI()  # any model call would fail: no responses queued
+    out = answer(q, CON, client=api.client())
+    assert out["status"] == "refused_hard" and out["parser"] == "rules (window check)" and not api.requests
+
+
 def test_model_plan_is_still_validated():
     for plan in [{"intent": "unsupported", "industries": [], "top_n": 10, "window": "3M", "reason": "No crypto data."},
                  {"intent": "top_performers", "industries": ["Banks"], "top_n": 500, "window": "3M"}]:
